@@ -94,9 +94,12 @@ def get_deepseek_embedding(text, model=config.EMBEDDING_MODEL):
 # --- Core Functions ---
 
 
-def scrape_articles(feed_profile, rss_feeds):  # Added params
+def scrape_articles(feed_profile, rss_feeds, target_date=None):  # Added params
     """Scrapes articles for a specific feed profile."""
     print(f"\n--- Starting Article Scraping [{feed_profile}] ---")
+    if target_date:
+        print(f"Filtering articles published on: {target_date}")
+
     new_articles_count = 0
     if not rss_feeds:
         print(f"Warning: No RSS_FEEDS defined for profile '{feed_profile}'. Skipping scrape.")
@@ -115,6 +118,9 @@ def scrape_articles(feed_profile, rss_feeds):  # Added params
             published_parsed = entry.get("published_parsed")
             published_date = datetime(*published_parsed[:6]) if published_parsed else datetime.now()
             feed_source = feed.feed.get("title", feed_url)
+
+            if target_date and published_date.date() != target_date:
+                continue
 
             if not url:
                 continue
@@ -299,13 +305,15 @@ def rate_articles(feed_profile, effective_config, limit=1000):
     print(f"--- Rating Finished. Rated {rated_count} articles. ---")
 
 
-def generate_brief(feed_profile, effective_config):  # Added feed_profile param
+def generate_brief(feed_profile, effective_config, target_date=None):  # Added feed_profile param
     """Generates the briefing for a specific feed profile."""
     print(f"\n--- Starting Brief Generation [{feed_profile}] ---")
     chat_model = getattr(effective_config, "DEEPSEEK_CHAT_MODEL", "deepseek-chat")  # Get model from effective config
 
     # Get articles *for this specific profile*
-    articles = database.get_articles_for_briefing(config.BRIEFING_ARTICLE_LOOKBACK_HOURS, feed_profile)
+    articles = database.get_articles_for_briefing(
+        config.BRIEFING_ARTICLE_LOOKBACK_HOURS, feed_profile, target_date=target_date
+    )
 
     if not articles or len(articles) < config.MIN_ARTICLES_FOR_BRIEFING:
         print(
@@ -481,8 +489,22 @@ def main():
         default=1000,
         help='Limit the number of articles to process/rate (default: 1000).'
     )
+    parser.add_argument(
+        '-d', '--date',
+        type=str,
+        help='Specify a date (YYYY-MM-DD) to filter articles by. If not set, defaults to today/recent.'
+    )
 
     args = parser.parse_args()
+
+    target_date = None
+    if args.date:
+        try:
+            target_date = datetime.strptime(args.date, "%Y-%m-%d").date()
+            print(f"Target date set to: {target_date}")
+        except ValueError:
+            print("Error: Invalid date format. Use YYYY-MM-DD.")
+            return
 
     # --- Load Feed Specific Config ---
     feed_profile_name = args.feed
@@ -553,20 +575,20 @@ def main():
     if should_run_all:
         print("\n>>> Running ALL stages <<<")
         if current_rss_feeds:
-            scrape_articles(feed_profile_name, current_rss_feeds)
+            scrape_articles(feed_profile_name, current_rss_feeds, target_date=target_date)
         else:
             print("Skipping scrape stage: No RSS_FEEDS found for profile.")
         process_articles(feed_profile_name, effective_config, limit=args.limit)
         rate_articles(feed_profile_name, effective_config, limit=args.limit)
         if current_rss_feeds:
-            generate_brief(feed_profile_name, effective_config)
+            generate_brief(feed_profile_name, effective_config, target_date=target_date)
         else:
             print("Skipping generate stage: No RSS_FEEDS found for profile.")
     else:
         if args.scrape:
             if current_rss_feeds:
                 print(f"\n>>> Running ONLY Scrape Articles stage [{feed_profile_name}] <<<")
-                scrape_articles(feed_profile_name, current_rss_feeds)
+                scrape_articles(feed_profile_name, current_rss_feeds, target_date=target_date)
             else:
                 print(f"Cannot run scrape stage: No RSS_FEEDS found for profile '{feed_profile_name}'.")
         if args.process:
@@ -578,7 +600,7 @@ def main():
         if args.generate:
             if current_rss_feeds:  # Check if feeds exist, as brief relies on articles from them
                 print(f"\n>>> Running ONLY Generate Brief stage [{feed_profile_name}] <<<")
-                generate_brief(feed_profile_name, effective_config)
+                generate_brief(feed_profile_name, effective_config, target_date=target_date)
             else:
                 print(f"Cannot run generate stage: No RSS_FEEDS found for profile '{feed_profile_name}'.")
 

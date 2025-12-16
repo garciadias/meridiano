@@ -85,9 +85,12 @@ def list_articles():
     # Calculate dates based on preset if provided
     if preset:
         today = date.today()
-        if preset == "yesterday":
+        if preset == "today":
+            start_date = today
+            end_date = today
+        elif preset == "yesterday":
             start_date = today - timedelta(days=1)
-            end_date = start_date
+            end_date = today - timedelta(days=1)
         elif preset == "last_week":  # Last 7 days including today
             start_date = today - timedelta(days=6)
             end_date = today
