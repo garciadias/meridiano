@@ -1,8 +1,10 @@
-{% set profile_params = {'feed_profile': current_feed_profile} if current_feed_profile is defined and current_feed_profile else {} %}
+{% set profile_params = {'feed_profile': current_feed_profile} if current_feed_profile is defined and
+current_feed_profile else {} %}
 <header class="main-header">
     <div class="header-content">
         <a href="{{ url_for('index', **profile_params) }}" class="logo">
-            <img src="{{ url_for('static', filename='icons/icon.svg') }}" alt="Meridiano Icon" style="height: 1.2em; vertical-align: middle; margin-right: 8px;">
+            <img src="{{ url_for('static', filename='icons/icon.svg') }}" alt="Meridiano Icon"
+                style="height: 1.2em; vertical-align: middle; margin-right: 8px;">
             Meridiano
         </a>
         <nav class="main-nav">
@@ -10,9 +12,44 @@
             <a href="{{ url_for('list_articles', **profile_params) }}">Articles</a>
         </nav>
         <div class="header-actions">
+            <button id="theme-toggle" class="theme-toggle" title="Toggle Dark Mode">
+                <i class="fas fa-moon"></i>
+            </button>
             <a href="{{ url_for('add_manual_article') }}" class="btn btn-add-article" title="Add New Article">
                 <i class="fas fa-plus"></i> Add Article
             </a>
         </div>
     </div>
 </header>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggleBtn = document.getElementById('theme-toggle');
+        const icon = toggleBtn.querySelector('i');
+        const html = document.documentElement;
+
+        // Function to update icon based on current theme
+        const updateIcon = () => {
+            const currentTheme = html.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        };
+
+        // Initial icon update
+        updateIcon();
+
+        toggleBtn.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateIcon();
+        });
+    });
+</script>
