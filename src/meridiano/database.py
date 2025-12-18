@@ -315,20 +315,27 @@ def update_article_processing(article_id: int, processed_content: str, embedding
             session.commit()
 
 
-def get_articles_for_briefing(lookback_hours: int, feed_profile: str) -> List[Dict[str, Any]]:
+def get_articles_for_briefing(
+    lookback_hours: int, feed_profile: str, target_date: Optional[date] = None
+) -> List[Dict[str, Any]]:
     """Gets recently processed articles for a specific feed profile."""
-    cutoff_time = datetime.now() - timedelta(hours=lookback_hours)
-
     with get_session() as session:
+        conditions = [
+            Article.embedding.is_not(None),
+            Article.feed_profile == feed_profile,
+        ]
+
+        if target_date:
+            # Filter by published_date matching target_date
+            conditions.append(func.date(Article.published_date) == target_date)
+        else:
+            # Default behavior: use lookback on processed_at
+            cutoff_time = datetime.now() - timedelta(hours=lookback_hours)
+            conditions.append(Article.processed_at >= cutoff_time)
+
         statement = (
             select(Article)
-            .where(
-                and_(
-                    Article.processed_at >= cutoff_time,
-                    Article.embedding.is_not(None),
-                    Article.feed_profile == feed_profile,
-                )
-            )
+            .where(and_(*conditions))
             .order_by(desc(Article.processed_at))
         )
 
