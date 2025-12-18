@@ -34,6 +34,10 @@ embedding_client = {
 
 def call_deepseek_chat(prompt, model=config.LLM_CHAT_MODEL, system_prompt=None):
     """Calls the LLM API (Deepseek, Ollama, etc)."""
+    # Fix for common DeepSeek model name issue where prefix is missing
+    if model in ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"]:
+        model = f"deepseek/{model}"
+
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
